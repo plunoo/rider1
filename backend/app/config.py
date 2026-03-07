@@ -12,7 +12,7 @@ load_dotenv(BASE_DIR / ".env")
 ENVIRONMENT = os.getenv("ENVIRONMENT", "development").strip().lower()
 IS_PRODUCTION = ENVIRONMENT in {"production", "prod"}
 
-# Require an explicit DATABASE_URL; don't fall back to a test DB in prod.
+# Simple DATABASE_URL handling
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     if IS_PRODUCTION:
@@ -20,23 +20,6 @@ if not DATABASE_URL:
     else:
         # Fallback for development
         DATABASE_URL = "sqlite:///./test.db"
-        print("⚠️  Using SQLite fallback database for development")
-
-# Clean up the DATABASE_URL if it contains encoded characters
-if DATABASE_URL:
-    # Handle URL-encoded passwords in PostgreSQL URLs
-    import urllib.parse
-    if "postgresql://" in DATABASE_URL or "postgres://" in DATABASE_URL:
-        # Split the URL to handle encoded passwords properly
-        try:
-            parsed = urllib.parse.urlparse(DATABASE_URL)
-            if parsed.password:
-                # Decode the password if it's URL-encoded
-                decoded_password = urllib.parse.unquote(parsed.password)
-                # Reconstruct the URL with the decoded password
-                DATABASE_URL = f"{parsed.scheme}://{parsed.username}:{decoded_password}@{parsed.hostname}:{parsed.port}/{parsed.path.lstrip('/')}"
-        except Exception as e:
-            print(f"⚠️  Could not parse DATABASE_URL, using as-is: {e}")
 
 JWT_SECRET = os.getenv("JWT_SECRET")
 if IS_PRODUCTION and (not JWT_SECRET or JWT_SECRET == "CHANGE_ME"):
