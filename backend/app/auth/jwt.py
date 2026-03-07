@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 from jose import jwt
-from app.config import JWT_SECRET, JWT_ALGORITHM
+from config import JWT_SECRET, JWT_ALGORITHM
 
 def create_access_token(data: dict, minutes: int):
     payload = data.copy()

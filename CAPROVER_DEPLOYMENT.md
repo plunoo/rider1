@@ -1,102 +1,81 @@
 # CapRover Production Deployment Guide
 
-This guide will walk you through deploying the Rider Management System to CapRover with PostgreSQL database and all production configurations.
+This guide will walk you through deploying the Rider Management System to CapRover using your existing PostgreSQL database.
 
 ## Prerequisites
 - CapRover installed and accessible
-- Domain configured (optional but recommended)
-- Git repository or ability to push code
+- PostgreSQL database already deployed: `srv-captain--db:5432`
+- Git repository at `https://github.com/plunoo/rider1.git`
 
-## Step 1: Deploy PostgreSQL Database
+## Database Information
+Your PostgreSQL database is already deployed with these details:
+```
+Host: srv-captain--db
+Port: 5432
+Database: postgres
+User: postgres
+Password: d5aef14c8274f6be
+```
+
+## Step 1: Create the Main App
 
 1. **Login to CapRover Dashboard**
-   - Go to your CapRover URL (e.g., `https://captain.yourdomain.com`)
+   - Go to your CapRover URL
 
-2. **Deploy PostgreSQL from One-Click Apps**
-   - Navigate to "Apps" → "One-Click Apps/Databases"
-   - Search for "PostgreSQL"
-   - Click "Deploy"
-   - Set app name: `rider-db`
-   - Configure:
-     - PostgreSQL Root Password: `[GENERATE_STRONG_PASSWORD]`
-     - PostgreSQL Database: `riderdb`
-     - PostgreSQL User: `rideruser`
-     - PostgreSQL Password: `[GENERATE_STRONG_PASSWORD]`
-   - Click "Deploy"
-   - Wait for deployment to complete
-
-3. **Note Database Connection Details**
-   ```
-   Host: srv-captain--rider-db
-   Port: 5432
-   Database: riderdb
-   User: rideruser
-   Password: [YOUR_PASSWORD]
-   ```
-
-## Step 2: Create the Main App
-
-1. **Create New App**
+2. **Create New App**
    - Go to "Apps"
    - Click "Create a New App"
-   - App name: `rider-app`
-   - Check "Has Persistent Data" (for uploaded files if needed)
+   - App name: `rider-app` (or your preferred name)
+   - Leave "Has Persistent Data" unchecked (using external database)
    - Click "Create New App"
 
-2. **Enable HTTPS (Recommended)**
+3. **Enable HTTPS (Optional but Recommended)**
    - Click on your app `rider-app`
    - Go to "HTTP Settings" tab
    - Enable "Force HTTPS"
    - Enable "Enable HTTPS" 
    - Enter your domain and click "Enable HTTPS"
 
-## Step 3: Configure Environment Variables
+## Step 2: Configure Environment Variables
 
 1. **Navigate to App Settings**
    - Click on `rider-app`
    - Go to "App Configs" tab
 
 2. **Add Environment Variables**
-   Click "Add Key" and add these variables:
+   Click "Add Key" and add these variables exactly:
 
    ```bash
    # Database Configuration (REQUIRED)
-   DATABASE_URL=postgresql://rideruser:[YOUR_PASSWORD]@srv-captain--rider-db:5432/riderdb
+   DATABASE_URL=postgresql://postgres:d5aef14c8274f6be@srv-captain--db:5432/postgres
    
-   # Security (REQUIRED - Generate a strong secret)
-   JWT_SECRET=[GENERATE_STRONG_SECRET_KEY]
+   # Security (REQUIRED)
+   JWT_SECRET=6oLdHF8/W51aJFh6A3v0Mt1uJOM/cnbq6LTXAoCWvAc=
    
    # Production Environment
    ENVIRONMENT=production
    
    # Token Settings
    ACCESS_TOKEN_EXPIRE_MINUTES=1440
-   PASSWORD_RESET_TTL_MINUTES=60
    
    # Data Retention
    LOCATION_RETENTION_DAYS=30
-   
-   # CORS (if frontend on different domain)
-   CORS_ORIGINS=https://yourdomain.com,https://www.yourdomain.com
-   
-   # Optional: Host filtering
-   ALLOWED_HOSTS=yourdomain.com,www.yourdomain.com
    ```
 
 3. **Save Environment Variables**
    - Click "Save & Update"
    - Click "Save Configuration"
 
-## Step 4: Deploy the Application
+## Step 3: Deploy the Application
 
-### Option A: Deploy via Git (Recommended)
+### Option A: Deploy via GitHub (Recommended)
 
-1. **Connect GitHub/GitLab/Bitbucket**
-   - In "Deployment" tab
+1. **Connect GitHub Repository**
+   - Go to "Deployment" tab
    - Select "Deploy via GitHub/GitLab/Bitbucket"
-   - Authorize CapRover
-   - Select your repository
-   - Select branch (e.g., `main` or `master`)
+   - Authorize CapRover with GitHub
+   - Repository: `plunoo/rider1`
+   - Branch: `main`
    - Click "Save & Update"
    - Click "Force Build"
 
@@ -111,7 +90,6 @@ This guide will walk you through deploying the Rider Management System to CapRov
    ```bash
    caprover login
    ```
-   Enter your CapRover URL and password
 
 3. **Deploy from Project Directory**
    ```bash
@@ -119,143 +97,135 @@ This guide will walk you through deploying the Rider Management System to CapRov
    caprover deploy -a rider-app
    ```
 
-### Option C: Deploy via Tarball Upload
+## Step 4: Initialize Database and Create Admin User
 
-1. **Create Deployment Package**
-   ```bash
-   cd "/Users/jasper/Documents/dev11/rider app 2.0"
-   tar -czf deploy.tar.gz --exclude node_modules --exclude .git .
-   ```
+1. **Wait for Deployment to Complete**
+   - Check that app status shows "Running" (green)
+   - Check logs for any errors
 
-2. **Upload in CapRover**
-   - Go to "Deployment" tab
-   - Select "Deploy via Upload"
-   - Upload `deploy.tar.gz`
-   - Click "Deploy Now"
-
-## Step 5: Initialize Database and Admin User
-
-1. **Access App Container**
+2. **Access App Terminal**
    - In CapRover dashboard, go to your app
-   - Click "Open Web Terminal" (or use SSH)
+   - Go to "HTTP Settings" tab
+   - Click "Open Web Terminal"
 
-2. **Run Database Migrations**
+3. **Create Database Tables**
    ```bash
    cd /app
-   python -c "from database import engine, Base; from models import *; Base.metadata.create_all(bind=engine)"
+   python -c "
+   from app.database import Base, engine
+   from app import models
+   Base.metadata.create_all(bind=engine)
+   print('✅ Database tables created successfully!')
+   "
    ```
 
-3. **Create Admin User**
+4. **Create Admin User**
    ```bash
    python seed_admin.py
    ```
-   This will create an admin user with:
-   - Email: `admin@example.com`
-   - Password: `admin123`
-   - **IMPORTANT**: Change these credentials immediately after first login!
+   
+   This creates an admin user with:
+   - **Username:** `admin`
+   - **Password:** `admin123`
+   - **⚠️ IMPORTANT:** Change password after first login!
 
-## Step 6: Verify Deployment
+## Step 5: Test the Application
 
-1. **Check Application Status**
-   - Go to your app URL: `https://rider-app.yourdomain.com`
-   - You should see the login page
+1. **Get Your App URL**
+   - Note your app URL from CapRover (e.g., `https://rider-app.yourdomain.com`)
+   - Or use the default: `https://rider-app.captain.yourdomain.com`
 
-2. **Test Login**
-   - Login with admin credentials
-   - Navigate through the dashboard
-   - Check all major features
+2. **Test API Endpoints**
+   ```bash
+   # Test if API is working
+   curl https://your-app-url.com/auth/stores
+   # Should return: []
+   ```
 
-3. **Monitor Logs**
-   - In CapRover dashboard, click "App Logs"
-   - Check for any errors
+3. **Test Admin Login**
+   ```bash
+   # Test login endpoint
+   curl -X POST https://your-app-url.com/auth/login \
+     -H "Content-Type: application/json" \
+     -d '{"username":"admin","password":"admin123"}'
+   # Should return JWT token
+   ```
 
-## Step 7: Post-Deployment Configuration
+4. **Access Application**
+   - Go to your app URL
+   - The app runs on port 8000 and serves the FastAPI backend
+   - Use API documentation at: `https://your-app-url.com/docs`
+
+## Step 6: Post-Deployment Configuration
 
 1. **Change Admin Password**
-   - Login as admin
-   - Go to Settings/Profile
-   - Change password immediately
+   - Use the API or create a script to change the default password
+   - **Never leave default credentials in production!**
 
-2. **Configure Push Notifications (Optional)**
-   - Generate VAPID keys if using push notifications
-   - Add to environment variables:
-     ```
-     VAPID_PUBLIC_KEY=your_public_key
-     VAPID_PRIVATE_KEY=your_private_key
-     VAPID_CLAIM_EMAIL=admin@yourdomain.com
-     ```
+2. **Monitor Application**
+   - Check CapRover logs regularly
+   - Monitor database performance
+   - Set up alerts if needed
 
-3. **Setup Backup Strategy**
-   - Configure PostgreSQL backups in CapRover
-   - Set up regular database backups
+## Application Architecture
 
-4. **Configure Monitoring**
-   - Set up health checks
-   - Configure alerts for downtime
-
-## Step 8: Scaling (Optional)
-
-1. **Increase Instance Count**
-   - In "App Configs" tab
-   - Increase "Instance Count" for load balancing
-   - Click "Save & Update"
-
-2. **Configure Resources**
-   - Set memory limits
-   - Set CPU limits based on your needs
+This deployment creates:
+- **Backend Only**: FastAPI application on port 8000
+- **Database**: Uses your existing PostgreSQL at `srv-captain--db`
+- **API Access**: All endpoints available at `/auth/*`, `/api/*`
+- **Documentation**: Automatic API docs at `/docs`
 
 ## Troubleshooting
 
+### App Won't Start
+1. Check environment variables are set correctly
+2. Review app logs in CapRover
+3. Verify DATABASE_URL connection
+
 ### Database Connection Issues
-- Verify DATABASE_URL is correct
-- Check if database container is running
-- Ensure network connectivity between containers
+```bash
+# Test connection in app terminal
+cd /app
+python -c "
+from app.database import engine
+try:
+    with engine.connect() as conn:
+        result = conn.execute('SELECT version()')
+        print('✅ Connected:', result.fetchone())
+except Exception as e:
+    print('❌ Failed:', e)
+"
+```
 
-### Build Failures
-- Check build logs in CapRover
-- Ensure all files are included in deployment
-- Verify captain-definition syntax
+### Common Issues
+- **502 Error**: App not starting - check logs
+- **Database Error**: Verify DATABASE_URL format
+- **Auth Error**: Ensure JWT_SECRET is set
 
-### Application Not Starting
-- Check environment variables are set
-- Review application logs
-- Verify JWT_SECRET is set
+## API Endpoints
 
-### CORS Issues
-- Update CORS_ORIGINS environment variable
-- Include your frontend domain
+Once deployed, your API will be available at:
+- `GET /auth/stores` - List stores
+- `POST /auth/login` - User login
+- `POST /auth/register` - User registration
+- `GET /docs` - API documentation
+- And many more endpoints for the full rider management system
 
-## Security Checklist
+## Security Notes
 
-- [ ] Changed default admin credentials
-- [ ] Set strong JWT_SECRET
-- [ ] Enabled HTTPS
-- [ ] Configured CORS properly
-- [ ] Set up database backups
-- [ ] Reviewed and hardened environment variables
-- [ ] Enabled CapRover firewall rules if needed
+- ✅ Database password is already secure
+- ✅ JWT secret is properly configured
+- ✅ Production environment is set
+- ⚠️ **Remember to change admin password!**
+- 🔒 Enable HTTPS for production use
 
-## Maintenance
+## Next Steps
 
-### Update Application
-1. Push changes to Git repository
-2. In CapRover, click "Build Now" or it auto-builds if webhook configured
+After successful deployment:
+1. Change admin credentials
+2. Create your first store
+3. Set up rider registration
+4. Configure any additional features needed
+5. Set up monitoring and backups
 
-### Database Maintenance
-1. Access PostgreSQL container
-2. Run maintenance commands as needed
-3. Regular backups are crucial
-
-### Monitor Performance
-1. Check CapRover metrics
-2. Monitor application logs
-3. Set up external monitoring (optional)
-
-## Support
-
-For issues specific to:
-- CapRover: Check [CapRover Docs](https://caprover.com/docs/)
-- Application: Review application logs and error messages
-- Database: Check PostgreSQL container logs
-
-Remember to keep your CapRover instance updated and maintain regular backups of your database!
+Your Rider Management System is now ready for production use!

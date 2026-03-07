@@ -13,7 +13,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 from datetime import datetime, date
 
-from app.database import Base
+from database import Base
 
 
 # =========================

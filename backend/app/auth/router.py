@@ -6,11 +6,11 @@ import json
 import re
 import time as time_module
 import urllib.request
-from app.database import SessionLocal
-from app.models import User, Attendance, Notification, Store, AuditLog
-from app.auth.jwt import create_access_token
-from app.auth.passwords import hash_password, password_too_long, verify_password
-from app.config import ACCESS_TOKEN_EXPIRE_MINUTES
+from database import SessionLocal
+from models import User, Attendance, Notification, Store, AuditLog
+from auth.jwt import create_access_token
+from auth.passwords import hash_password, password_too_long, verify_password
+from config import ACCESS_TOKEN_EXPIRE_MINUTES
 from datetime import datetime, timedelta, time as dt_time
 
 router = APIRouter(prefix="/auth", tags=["Auth"])

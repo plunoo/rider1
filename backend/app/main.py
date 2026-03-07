@@ -4,12 +4,12 @@ from pathlib import Path
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy import inspect, text
-from app.database import Base, engine
-from app import models
-from app.utils import push  # noqa: F401
-from app.config import CORS_ORIGINS, ALLOWED_HOSTS, IS_PRODUCTION
-from app.auth.router import router as auth_router
-from app.routers import admin, riders, attendance, shifts, tracking, notifications, geo, deliveries, captain, messages, earnings, push
+from database import Base, engine
+import models
+from utils import push  # noqa: F401
+from config import CORS_ORIGINS, ALLOWED_HOSTS, IS_PRODUCTION
+from auth.router import router as auth_router
+from routers import admin, riders, attendance, shifts, tracking, notifications, geo, deliveries, captain, messages, earnings, push
 
 app = FastAPI(title="Rider Management API")
 
