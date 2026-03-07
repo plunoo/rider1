@@ -1,0 +1,17 @@
+{
+  "name": "Rider Portal",
+  "short_name": "Rider",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2f7",
+  "theme_color": "#1f2937",
+  "description": "Shift control, live tracking, and rider operations portal.",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

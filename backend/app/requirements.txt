@@ -1,0 +1,13 @@
+fastapi
+uvicorn
+sqlalchemy
+psycopg2-binary
+pymysql
+python-jose
+passlib[bcrypt]
+python-dotenv
+pandas
+openpyxl
+httpx
+gunicorn
+pywebpush

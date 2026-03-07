@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: backend
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql://user:password@host:5432/riderdb}
+      JWT_SECRET: ${JWT_SECRET:-change_me}
+      ACCESS_TOKEN_EXPIRE_MINUTES: ${ACCESS_TOKEN_EXPIRE_MINUTES:-1440}
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: frontend
+      args:
+        # Build-time API base URL for the frontend
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-http://api.johnsonzoglo.com/}
+    ports:
+      - "5173:80"
+    depends_on:
+      - backend
+    restart: unless-stopped

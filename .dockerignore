@@ -1,0 +1,33 @@
+# Git
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.log
+*.sqlite*
+*.db
+backend/.venv/
+backend/app/.venv/
+
+# Node/React
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Env and local data
+.env
+frontend/.env
+backend/app/.env
+backend/test.db
+backend/uvicorn.log
+
+# Tooling binaries
+corepack*
+npm*
+npx*
+node.exe
+install_tools.bat

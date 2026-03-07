@@ -1,0 +1,37 @@
+# Bytecode and caches
+__pycache__/
+*.py[cod]
+
+# Environment and local data
+.env
+frontend/.env
+backend/app/.env
+backend/test.db
+backend/app/test.db
+backend/uvicorn.log
+
+# Node and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+
+# Package manager shims dropped by corepack/npm
+corepack*
+npm
+npm.cmd
+npm.ps1
+npx
+npx.cmd
+npx.ps1
+node.exe
+nodevars.bat
+install_tools.bat
+
+# Local config and temporary files
+vite.local.config.mjs
+_write_test_root.txt
+*.tmp
+.DS_Store
+
+# Deployment artifacts
+deploy.tar.gz
