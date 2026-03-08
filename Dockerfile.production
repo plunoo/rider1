@@ -1,0 +1,171 @@
+# Production Dockerfile for Dokploy
+FROM node:18-alpine AS frontend-builder
+
+WORKDIR /app/frontend
+COPY frontend/package*.json ./
+RUN npm ci --only=production
+
+COPY frontend/ ./
+ARG VITE_API_BASE_URL=/api
+ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+RUN npm run build
+
+# Production backend image
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    postgresql-client \
+    nginx \
+    supervisor \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+COPY backend/app/requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY backend/app /app
+
+# Copy built frontend
+COPY --from=frontend-builder /app/frontend/dist /usr/share/nginx/html
+
+# Configure nginx for production
+RUN echo 'server {' > /etc/nginx/sites-available/default && \
+    echo '    listen 80;' >> /etc/nginx/sites-available/default && \
+    echo '    server_name _;' >> /etc/nginx/sites-available/default && \
+    echo '    root /usr/share/nginx/html;' >> /etc/nginx/sites-available/default && \
+    echo '    index index.html;' >> /etc/nginx/sites-available/default && \
+    echo '' >> /etc/nginx/sites-available/default && \
+    echo '    # Health check for Dokploy' >> /etc/nginx/sites-available/default && \
+    echo '    location /health {' >> /etc/nginx/sites-available/default && \
+    echo '        return 200 "healthy";' >> /etc/nginx/sites-available/default && \
+    echo '        add_header Content-Type text/plain;' >> /etc/nginx/sites-available/default && \
+    echo '    }' >> /etc/nginx/sites-available/default && \
+    echo '' >> /etc/nginx/sites-available/default && \
+    echo '    # API proxy to backend' >> /etc/nginx/sites-available/default && \
+    echo '    location /api/ {' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_pass http://localhost:8000/;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_http_version 1.1;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header Upgrade $http_upgrade;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header Connection "upgrade";' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header Host $host;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header X-Real-IP $remote_addr;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_set_header X-Forwarded-Proto $scheme;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_connect_timeout 30s;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_send_timeout 30s;' >> /etc/nginx/sites-available/default && \
+    echo '        proxy_read_timeout 30s;' >> /etc/nginx/sites-available/default && \
+    echo '    }' >> /etc/nginx/sites-available/default && \
+    echo '' >> /etc/nginx/sites-available/default && \
+    echo '    # Frontend SPA routes' >> /etc/nginx/sites-available/default && \
+    echo '    location / {' >> /etc/nginx/sites-available/default && \
+    echo '        try_files $uri $uri/ /index.html;' >> /etc/nginx/sites-available/default && \
+    echo '    }' >> /etc/nginx/sites-available/default && \
+    echo '' >> /etc/nginx/sites-available/default && \
+    echo '    # Cache static assets' >> /etc/nginx/sites-available/default && \
+    echo '    location ~* \.(js|css|png|jpg|jpeg|gif|ico|svg|woff2?|ttf|eot)$ {' >> /etc/nginx/sites-available/default && \
+    echo '        expires 1y;' >> /etc/nginx/sites-available/default && \
+    echo '        add_header Cache-Control "public, immutable";' >> /etc/nginx/sites-available/default && \
+    echo '    }' >> /etc/nginx/sites-available/default && \
+    echo '}' >> /etc/nginx/sites-available/default
+
+# Configure supervisor for process management
+RUN mkdir -p /var/log/supervisor && \
+    echo '[supervisord]' > /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'nodaemon=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'user=root' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'logfile=/var/log/supervisor/supervisord.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'pidfile=/var/run/supervisord.pid' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:backend]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=uvicorn main:app --host 0.0.0.0 --port 8000 --workers 2' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'directory=/app' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/backend.err.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/backend.out.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=200' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo '[program:nginx]' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'command=/usr/sbin/nginx -g "daemon off;"' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autostart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'autorestart=true' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stderr_logfile=/var/log/supervisor/nginx.err.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'stdout_logfile=/var/log/supervisor/nginx.out.log' >> /etc/supervisor/conf.d/supervisord.conf && \
+    echo 'priority=300' >> /etc/supervisor/conf.d/supervisord.conf
+
+# Production startup script with database initialization
+COPY <<EOF /app/startup.sh
+#!/bin/bash
+set -e
+
+echo "🚀 Starting Rider Management System..."
+
+# Wait for PostgreSQL database
+echo "⏳ Waiting for database connection..."
+until pg_isready -h \${DB_HOST} -p \${DB_PORT:-5432} -U \${DB_USER}; do
+  echo "Database not ready yet, waiting..."
+  sleep 2
+done
+echo "✅ Database connection established!"
+
+# Initialize database
+echo "📦 Initializing database tables..."
+cd /app
+python -c "
+try:
+    from database import Base, engine
+    import models
+    Base.metadata.create_all(bind=engine)
+    print('✅ Database tables created successfully!')
+except Exception as e:
+    print(f'❌ Database initialization failed: {e}')
+    exit(1)
+"
+
+# Create admin user
+echo "👤 Setting up admin user..."
+python -c "
+try:
+    from database import SessionLocal
+    from models import User
+    from auth.passwords import hash_password
+    
+    db = SessionLocal()
+    existing = db.query(User).filter(User.username == 'admin').first()
+    if not existing:
+        admin = User(
+            username='admin',
+            name='System Administrator', 
+            role='admin',
+            password=hash_password('admin123'),
+            is_active=True
+        )
+        db.add(admin)
+        db.commit()
+        print('✅ Admin user created! Login: admin/admin123')
+    else:
+        print('ℹ️ Admin user already exists')
+    db.close()
+except Exception as e:
+    print(f'⚠️ Admin setup warning: {e}')
+"
+
+echo "🎯 Starting application services..."
+exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
+EOF
+
+RUN chmod +x /app/startup.sh
+
+# Health check for Dokploy monitoring
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD curl -f http://localhost/health || exit 1
+
+EXPOSE 80
+
+CMD ["/app/startup.sh"]
